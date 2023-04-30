@@ -92,6 +92,22 @@ function getdiagonals(board::Matrix{<:Integer}, smalldiags = false)
 end
 
 
+function boardtohash(board::Matrix{<:Integer}, depth::Integer)
+    boardsize::Int8 = size(board, 1)
+    iterator::Int8 = length(board)
+    hash::Int64 = 0
+
+    for i in 1:boardsize
+        for j in 1:boardsize
+            hash += (board[i, j] * (3 ^ (25 - iterator))) * depth
+            iterator -= 1
+        end
+    end
+
+    return hash
+end
+
+
 ########################
 # Evaluation functions #
 ########################
@@ -112,10 +128,8 @@ function evaluate_forwinning(board::Matrix{<:Integer}, player::Integer)
         
         if check_foursymbols(row) == true
             if row[3] == player
-                println("test1")
                 return 100
             else
-                println("test1xd")
                 return -100
             end
         end
@@ -126,10 +140,8 @@ function evaluate_forwinning(board::Matrix{<:Integer}, player::Integer)
 
         if check_foursymbols(col) == true
             if col[3] == player
-                println("test2")
                 return 100
             else
-                println("test2xd")
                 return -100
             end
         end
@@ -138,10 +150,8 @@ function evaluate_forwinning(board::Matrix{<:Integer}, player::Integer)
     for diag in diagonals
         if check_foursymbols(diag) == true
             if diag[3] == player
-                println("test3")
                 return 100
             else
-                println("test3xd")
                 return -100
             end
         end
@@ -199,33 +209,60 @@ function evaluate_forlosing(board::Matrix{<:Integer}, player::Integer)
 end
 
 
+function evaluate_potentials(board, depth, player)
+    boardsize::Int8 = size(board, 1)
+
+end
+
+
 ######################
 # Minmax + heuristic #
 ######################
 
 function heuristiceval(board::Matrix{<:Integer}, depth::Integer, player::Integer)
     evaluation::Int64 = 0
-    evaluation += evaluate_forlosing(board, player) * depth
+    evaluation += evaluate_forwinning(board, player) * (10 * depth)
+
+    if evaluation > 0
+        return evaluation
+    end
+
+    evaluation = 0
+    evaluation += evaluate_forlosing(board, player) * (10 * depth)
+
+    if evaluation < 0
+        return evaluation
+    end
+
 
     return evaluation
 end
 
-function nextmove(board::Matrix{<:Integer}, depth::Integer, player::Integer)
+function nextmove(board::Matrix{<:Integer}, boardshashes::Dict{<:Integer, <:Integer}, 
+                  depth::Integer, player::Integer)
     boardsize::Int8 = size(board, 1)
 
-    curreval::Int64  = 0
+    curreval::Int64 = 0
     besteval::Int64 = typemin(Int64)
     bestmove::Move{Int64} = Move(-1, -1)
 
-    maximizing::Bool = player == 1 ? true : false
-
+    boardhash::Int64 = 0
 
     for i in 1:boardsize
         for j in 1:boardsize
             if board[i, j] == 0
+                global counter += 1
+
                 board[i, j] = player
-                curreval = minimax(board, depth, typemin(Int64), typemax(Int64), maximizing, player)
+
+                boardhash = boardtohash(board, depth)
+                println("boardhash[$i, $j] = $boardhash")
+                # display(board)
+                
+                curreval = minimax(board, boardshashes, depth, typemin(Int64), typemax(Int64), false, player)
                 board[i, j] = 0
+                
+                boardshashes[boardhash] = curreval
 
                 if curreval > besteval
                     besteval = curreval
@@ -238,32 +275,58 @@ function nextmove(board::Matrix{<:Integer}, depth::Integer, player::Integer)
 
 
     println("Depth: $depth")
-    println("Maximizing: $maximizing")
     println("Best evaluation: $besteval")
     println("Best move: $bestmove")
 
     return bestmove
 end
 
-function minimax(board::Matrix{<:Integer}, depth::Integer, alpha::Integer, beta::Integer, maximizing::Bool, player::Integer)
+function minimax(board::Matrix{<:Integer}, boardshashes::Dict{<:Integer, <:Integer}, depth::Integer, 
+                 alpha::Integer, beta::Integer, maximizing::Bool, player::Integer)
     boardsize::Int8 = size(board, 1)
-    
-    curreval::Int64 = heuristiceval(board, depth, player)
-    besteval::Int64 = 0
+    boardhash::Int64 = boardtohash(board, depth)
 
-    if depth == 1
-        return curreval
+
+    if haskey(boardshashes, boardhash) == true
+        return boardshashes[boardhash]
+    end
+
+
+    winpreeval::Int64 = evaluate_forwinning(board, player) 
+    if winpreeval != 0 
+        boardshashes[boardhash] = winpreeval
+
+        return winpreeval
     end
     
-    # evaluation += evaluate_forwinning(board, player)
-    # if evaluation == 100 || evaluation == -100
-        # return evaluation
-    # end
+    losspreeval::Int64 = evaluate_forlosing(board, player)
+    if losspreeval != 0
+        boardshashes[boardhash] = losspreeval
+
+        return losspreeval
+    end
 
     if anymovesleft(board) == false
+        boardshashes[boardhash] = 0
+
         return 0
     end
 
+
+    curreval::Int64 = heuristiceval(board, depth, player)
+
+    if depth == 1
+        # println("MINMAX END:")
+        # display(board)
+        # println("EVAL: $curreval | ALPHA: $alpha | BETA: $beta")
+        boardshashes[boardhash] = curreval
+
+        return curreval
+    end
+    
+
+    besteval::Int64 = 0
+    prune::Bool = false
 
     if maximizing == true
         besteval = typemin(Int64)
@@ -271,15 +334,24 @@ function minimax(board::Matrix{<:Integer}, depth::Integer, alpha::Integer, beta:
         for i in 1:boardsize
             for j in 1:boardsize
                 if board[i, j] == 0
+                    global counter += 1
+
                     board[i, j] = player
-                    besteval = max(besteval, minimax(board, depth - 1, alpha, beta, !maximizing, player))
+                    besteval = max(besteval, minimax(board, boardshashes, depth - 1, alpha, beta, !maximizing, player))
                     board[i, j] = 0
+
+                    boardshashes[boardhash] = besteval
 
                     alpha = max(alpha, besteval)
 
                     if besteval >= beta
+                        prune = true
                         break
                     end
+                end
+
+                if prune == true
+                    break
                 end
             end
         end
@@ -291,19 +363,28 @@ function minimax(board::Matrix{<:Integer}, depth::Integer, alpha::Integer, beta:
         for i in 1:boardsize
             for j in 1:boardsize
                 if board[i, j] == 0
-                    board[i, j] = player
-                    besteval = min(besteval, minimax(board, depth - 1, alpha, beta, !maximizing, player))
+                    global counter += 1
+
+                    board[i, j] = 3 - player
+                    besteval = min(besteval, minimax(board, boardshashes, depth - 1, alpha, beta, !maximizing, player))
                     board[i, j] = 0
 
+                    boardshashes[boardhash] = besteval
+                    
                     beta = min(beta, besteval)
 
                     if besteval <= alpha
+                        prune = true
                         break
                     end
+                end
+                
+                if prune == true
+                    break
                 end
             end
         end
 
         return besteval
     end
-end
+end 

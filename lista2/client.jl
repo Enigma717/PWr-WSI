@@ -7,6 +7,9 @@ using Sockets
 using Observables
 
 
+counter = 0
+
+
 #################
 # Miscellaneous #
 #################
@@ -40,7 +43,8 @@ end
 # Miscellaneous #
 #################
 
-function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer}, player::String)
+function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer}, 
+                        boardshashes::Dict{<:Integer, <:Integer}, player::String)
     if length(response) == 3
         code::UInt8 = response[1]
 
@@ -89,8 +93,9 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer}, p
 
         board[oprow, opcol] = 3 - symbol
 
+        global counter = 0
 
-        bestmove::Move{Int64} = nextmove(board, 4, symbol)
+        time = @elapsed bestmove::Move{Int64} = nextmove(board, boardshashes, 9, symbol)
         movestring::String = string(bestmove.row, bestmove.col) 
 
         board[bestmove.row, bestmove.col] = symbol
@@ -98,8 +103,11 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer}, p
         
         println("Ruch przeciwnika: $oprow$opcol")
         println("Mój ruch: $movestring")
+        println("DICTSIZE: $(length(boardshashes))")
+        println("COUNTER: $counter")
+        println("TIME: $time")
 
-        
+
         return movestring
     end
 end
@@ -112,8 +120,11 @@ function startclient(args::Vector{String})
     end
 
     board::Matrix{Int8} = zeros(Int8, 5, 5)
+    boardshashes::Dict{Int64, Int64} = Dict{Int64, Int64}()
+
     response::Vector{UInt8} = Vector{UInt8}(undef, 3)
     movestring::Union{String, Nothing} = nothing
+
 
     println("Test: $(args[1]) | $(args[2]) | $(args[3])")
 
@@ -130,7 +141,7 @@ function startclient(args::Vector{String})
 
         display(response)
 
-        movestring = responseparser(response, board, player)
+        movestring = responseparser(response, board, boardshashes, player)
 
         if isnothing(movestring)
             break
