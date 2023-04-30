@@ -12,12 +12,14 @@ using Observables
 #################
 
 function printboard(board::Matrix{<:Integer})
+    boardize::Int8 = size(board, 1)
+    
     println("  1 2 3 4 5")
 
-    for i in 1:5
+    for i in 1:boardize
         print(i)
 
-        for j in 1:5
+        for j in 1:boardize
             if board[i, j] == 0
                 print(" -")
             elseif board[i, j] == 1
@@ -49,6 +51,9 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer}, p
 
         if code == 0x36
             println("Zaczynam")
+
+            board[3, 3] = parse(Int64, player)
+
             return "33"
         end
 
@@ -77,26 +82,25 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer}, p
             return nothing
         end
     else
-        symbol::UInt8 = parse(UInt8, player)
+        symbol::Int64 = parse(Int64, player)
 
-        oprow::UInt8 = response[1] - 48
-        opcol::UInt8 = response[2] - 48
-        
-        myrow::UInt8 = oprow + 1 < 6 ? oprow + 1 : 1
-        mycol::UInt8 = opcol + 1 < 6 ? opcol + 1 : 1
-
-        mymove::String = string(myrow, mycol) 
-        
+        oprow::Int64 = response[1] - 0x30
+        opcol::Int64 = response[2] - 0x30
 
         board[oprow, opcol] = 3 - symbol
-        board[myrow, mycol] = symbol
+
+
+        bestmove::Move{Int64} = nextmove(board, 4, symbol)
+        movestring::String = string(bestmove.row, bestmove.col) 
+
+        board[bestmove.row, bestmove.col] = symbol
         
         
         println("Ruch przeciwnika: $oprow$opcol")
-        println("Mój ruch: $mymove")
+        println("Mój ruch: $movestring")
 
-
-        return mymove
+        
+        return movestring
     end
 end
 
@@ -108,26 +112,30 @@ function startclient(args::Vector{String})
     end
 
     board::Matrix{Int8} = zeros(Int8, 5, 5)
+    response::Vector{UInt8} = Vector{UInt8}(undef, 3)
+    movestring::Union{String, Nothing} = nothing
 
-    println("Typeof: $(typeof(args))")
     println("Test: $(args[1]) | $(args[2]) | $(args[3])")
 
-    address = IPv4(args[1]) 
-    port = parse(Int16, args[2]) 
-    player = args[3]
+    address::IPv4  = IPv4(args[1]) 
+    port::Int16    = parse(Int16, args[2]) 
+    player::String = args[3]
+
+
 
     connection = connect(address, port)
 
-
     while isopen(connection)
-        response::Vector{UInt8} = readavailable(connection)
+        response = readavailable(connection)
 
-        mymove::Union{String, Nothing} = responseparser(response, board, player)
+        display(response)
 
-        if isnothing(mymove)
+        movestring = responseparser(response, board, player)
+
+        if isnothing(movestring)
             break
         else
-            write(connection, mymove)
+            write(connection, movestring)
         end
 
         printboard(board)
