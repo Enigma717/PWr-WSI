@@ -4,7 +4,6 @@
 
 
 using Sockets
-using Observables
 
 
 counter = 0
@@ -88,10 +87,10 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer},
     else
         symbol::Int64 = parse(Int64, player)
 
-        oprow::Int64 = response[1] - 0x30
-        opcol::Int64 = response[2] - 0x30
+        opprow::Int64 = response[1] - 0x30
+        oppcol::Int64 = response[2] - 0x30
 
-        board[oprow, opcol] = 3 - symbol
+        board[opprow, oppcol] = 3 - symbol
 
         global counter = 0
 
@@ -101,7 +100,7 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer},
         board[bestmove.row, bestmove.col] = symbol
         
         
-        println("Ruch przeciwnika: $oprow$opcol")
+        println("Ruch przeciwnika: $opprow$oppcol")
         println("Mój ruch: $movestring")
         println("DICTSIZE: $(length(boardshashes))")
         println("COUNTER: $counter")
@@ -111,6 +110,7 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer},
         return movestring
     end
 end
+
 
 function startclient(args::Vector{String})
     if length(args) < 3
@@ -152,8 +152,6 @@ function startclient(args::Vector{String})
         printboard(board)
     end
 
-    println("KONIEC DZIAŁANIA")
     close(connection)
+    println("KONIEC DZIAŁANIA")
 end
-
-
