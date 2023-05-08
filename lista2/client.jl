@@ -1,59 +1,48 @@
-# Marek Traczyński (261748)
-# Wprowadzenie do Sztucznej Inteligencji
-# Lista 2
+#########################################################
+# Marek Traczyński (261748)                             #
+# Wprowadzenie do Sztucznej Inteligencji                #
+# Lista 2                                               #
+#########################################################
+# Client's implementation for communication with server #
+#########################################################
+
 
 
 using Sockets
 
 
-counter = 0
 
+############################
+# Server's response parser #
+############################
 
-#################
-# Miscellaneous #
-#################
+#=
+    Parse response sent from server.
 
-function printboard(board::Matrix{<:Integer})
-    boardize::Int8 = size(board, 1)
-    
-    println("  1 2 3 4 5")
-
-    for i in 1:boardize
-        print(i)
-
-        for j in 1:boardize
-            if board[i, j] == 0
-                print(" -")
-            elseif board[i, j] == 1
-                print(" X")
-            elseif board[i, j] == 2
-                print(" O")
-            end
-        end
-
-        println()
-    end
-
-    println()
-end
-
-
-#################
-# Miscellaneous #
-#################
-
+    Possible responses:
+        - length 3:
+            > 700: Send player's number
+            > 600: Send first move
+            > 500: Loss due to my error
+            > 400: Win due to opponent's error
+            > 3xx: Tie caused by move "xx"
+            > 2xx: Loss caused by move "xx"
+            > 1xx: Win caused by move "xx"
+        - length 2:
+            > xx: Opponent's move 
+=#
 function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer}, 
-                        boardshashes::Dict{<:Integer, <:Integer}, player::String)
+                        boardshashes::Dict{<:Integer, <:Integer}, player::String, depth::Integer)
     if length(response) == 3
         code::UInt8 = response[1]
 
         if response[1] == 0x37
-            println("Odpowiadam numer: $player")
+            println("\nSending my player's number: $player\n")
             return player
         end
 
         if code == 0x36
-            println("Zaczynam")
+            println("\nI begin the game.\n")
 
             board[3, 3] = parse(Int64, player)
 
@@ -61,27 +50,27 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer},
         end
 
         if code == 0x35
-            println("Przegrana z mojego błędu")
+            println("\nI lost due to my error.\n")
             return nothing
         end
 
         if code == 0x34
-            println("Wygrałem przez błąd przeciwnika")
+            println("\nI won due to my opponent's error.\n")
             return nothing
         end
 
         if code == 0x33
-            println("Remis")
+            println("\nTie.\n")
             return nothing
         end
 
         if code == 0x32
-            println("Przegrałem")
+            println("\nI lost.\n")
             return nothing
         end
 
         if code == 0x31
-            println("Wygrałem")
+            println("\nI won. (yay!)\n")
             return nothing
         end
     else
@@ -92,19 +81,17 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer},
 
         board[opprow, oppcol] = 3 - symbol
 
-        global counter = 0
+        println("\n==============================\n")
+        print("Calculating best move for depth $depth:")
 
-        time = @elapsed bestmove::Move{Int64} = nextmove(board, boardshashes, 9, symbol)
+        bestmove::Move{Int64} = nextmove(board, boardshashes, depth, symbol)
         movestring::String = string(bestmove.row, bestmove.col) 
 
         board[bestmove.row, bestmove.col] = symbol
         
         
-        println("Ruch przeciwnika: $opprow$oppcol")
-        println("Mój ruch: $movestring")
-        println("DICTSIZE: $(length(boardshashes))")
-        println("COUNTER: $counter")
-        println("TIME: $time")
+        println("\n\nMy move: $movestring")
+        println("Opponent's move: $opprow$oppcol\n")
 
 
         return movestring
@@ -112,12 +99,17 @@ function responseparser(response::Vector{<:Integer}, board::Matrix{<:Integer},
 end
 
 
+##########
+# Client #
+##########
+
 function startclient(args::Vector{String})
-    if length(args) < 3
+    if length(args) < 4
         println("Wrong number of arguments provided")
         
         return nothing
     end
+
 
     board::Matrix{Int8} = zeros(Int8, 5, 5)
     boardshashes::Dict{Int64, Int64} = Dict{Int64, Int64}()
@@ -126,11 +118,10 @@ function startclient(args::Vector{String})
     movestring::Union{String, Nothing} = nothing
 
 
-    println("Test: $(args[1]) | $(args[2]) | $(args[3])")
-
     address::IPv4  = IPv4(args[1]) 
     port::Int16    = parse(Int16, args[2]) 
     player::String = args[3]
+    depth::Int8    = parse(Int8, args[4])
 
 
 
@@ -139,9 +130,7 @@ function startclient(args::Vector{String})
     while isopen(connection)
         response = readavailable(connection)
 
-        display(response)
-
-        movestring = responseparser(response, board, boardshashes, player)
+        movestring = responseparser(response, board, boardshashes, player, depth)
 
         if isnothing(movestring)
             break
@@ -153,5 +142,5 @@ function startclient(args::Vector{String})
     end
 
     close(connection)
-    println("KONIEC DZIAŁANIA")
+    println("Connection closed successfully.\n")
 end

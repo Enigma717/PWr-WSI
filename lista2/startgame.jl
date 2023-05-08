@@ -3,18 +3,16 @@
 # Wprowadzenie do Sztucznej Inteligencji #
 # Lista 2                                #
 ##########################################
-# AI Tic-Tac-Toe player module           #
+# Start the client                       #
 ##########################################
 
 
+include("./TTTPlayer.jl")
+using .TTTPlayer
 
-module TTTPlayer
+function start()
+    startclient(ARGS)
+end
 
-export startclient
 
-include("./auxiliary.jl")
-include("./heuristic.jl")
-include("./aiplayer.jl")
-include("./client.jl")
-
-end     ##### module TTTPlayer #####
+start()
