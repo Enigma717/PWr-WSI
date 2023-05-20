@@ -12,7 +12,7 @@ module TTTPlayer
 
 export startclient
 
-include("./auxiliary.jl")
+include("./utils.jl")
 include("./heuristic.jl")
 include("./aiplayer.jl")
 include("./client.jl")
