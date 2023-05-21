@@ -8,7 +8,7 @@ Użyte narzędzia:
 
 ----------------------------------
 Uruchamianie programu:
-    - Program nie wymaga kompilacji.
+    - Program nie wymaga wstępnej kompilacji i był testowany na systemie Arch Linux w wersji Linux 6.2.13-arch1-1
     - W celu uruchomienia programu należy wywołać komendę:
         $ julia startgame.jl <adres ip> <numer portu> <numer gracza> <głębokość>
         
