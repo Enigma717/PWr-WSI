@@ -1,16 +1,15 @@
-#########################################################
-# Marek Traczyński (261748)                             #
-# Wprowadzenie do Sztucznej Inteligencji                #
-# Lista 2                                               #
-#########################################################
-# Client's implementation for communication with server #
-#########################################################
+#######################################################
+# Marek Traczyński (261748)                           #
+# Wprowadzenie do Sztucznej Inteligencji              #
+# Lista 2                                             #
+#######################################################
+# Client implementation for communication with server #
+#######################################################
 
 
 
 using Sockets
 
-counter = 0
 
 ############################
 # Server's response parser #
@@ -31,14 +30,15 @@ counter = 0
             > 2xx: Loss caused by move "xx"
             > 1xx: Win caused by move "xx"
     
+            
     If response was of length 2, or length 3 with code 600, then we
     deduce our next move with use of minimax algorithm and send back
     string with our move to the server.
 =#
 function responseparser(response::Vector{UInt8}, gameboard::Gameboard{Int8}, 
-                        boardshashes::Dict{Int64, Int64}, player::String, depth::Integer)
+                        boardshashes::Dict{Int64, Int32}, player::String, depth::Integer)
 
-    symbol::Int64 = parse(Int64, player)
+    symbol::Int8 = parse(Int8, player)
 
     if length(response) == 2
         opprow::UInt8 = response[1] - 0x30
@@ -46,11 +46,18 @@ function responseparser(response::Vector{UInt8}, gameboard::Gameboard{Int8},
 
         gameboard.board[opprow, oppcol] = 3 - symbol
         gameboard.movesdone += 1
+
+        println("\n===============================\n")
+        println("Opponent's move: $opprow$oppcol\n")
+
+        printboard(gameboard)
     elseif length(response) == 3
         code::UInt8 = response[1]
 
         if response[1] == 0x37
-            println("\nSending my player's number: $player\n")
+            println("\n===============================\n")
+            println("Sending my player's number: $player\n")
+
             return player
         end
 
@@ -59,25 +66,32 @@ function responseparser(response::Vector{UInt8}, gameboard::Gameboard{Int8},
         end
 
         if code == 0x35
-            println("\nI lost due to my error.\n")
+            println("\n===============================\n")
+            println("I lost due to my error.\n")
+
             return nothing
         end
 
         if code == 0x34
-            println("\nI won due to my opponent's error.\n")
+            println("\n===============================\n")
+            println("I won due to my opponent's error.\n")
+
             return nothing
         end
 
         if code == 0x33
-            println("\nTie.\n")
+            println("\n===============================\n")
+            println("Tie.\n")
+
             return nothing
         end
 
         if code == 0x32
-            println("\nI lost.\n")
+            println("\n===============================\n")
+            println("I lost.\n")
 
-            mvrow::UInt8 = response[2] - 0x30
-            mvcol::UInt8 = response[3] - 0x30
+            mvrow = response[2] - 0x30
+            mvcol = response[3] - 0x30
 
             if mvrow != 0
                 gameboard.board[mvrow, mvcol] = 3 - symbol
@@ -88,18 +102,29 @@ function responseparser(response::Vector{UInt8}, gameboard::Gameboard{Int8},
         end
 
         if code == 0x31
-            println("\nI won. (yay!)\n")
+            println("\n===============================\n")
+            println("I won.\n")
+
+            mvrow = response[2] - 0x30
+            mvcol = response[3] - 0x30
+
+            if mvrow != 0
+                gameboard.board[mvrow, mvcol] = 3 - symbol
+                gameboard.movesdone += 1
+            end
+
             return nothing
         end
     else
         println("\nWrong message from the server\n")
+
         return nothing
     end
 
-    global counter = 0
 
-    println("\n==============================\n")
+    println("\n===============================\n")
     print("Calculating best move for depth $depth:")
+
 
     time = @elapsed bestmove::Move{Int8} = nextmove(gameboard, boardshashes, depth, symbol)
     movestring::String = string(bestmove.row, bestmove.col) 
@@ -107,11 +132,10 @@ function responseparser(response::Vector{UInt8}, gameboard::Gameboard{Int8},
     gameboard.board[bestmove.row, bestmove.col] = symbol
     gameboard.movesdone += 1
     
-    
-    println("\n\nMy move: $movestring")
-    println("\nDICTSIZE: $(length(boardshashes))\n")
-    println("COUNTER: $counter\n")
-    println("TIME: $time\n")
+
+    println("\n\nMove found in: $time seconds")
+    println("My move: $movestring\n")
+
 
     return movestring
 end
@@ -149,35 +173,42 @@ function startclient(args::Vector{String})
     end
 
 
-    address::IPv4  = IPv4(args[1]) 
-    port::Int16    = parse(Int16, args[2]) 
+    address::IPv4 = IPv4(args[1]) 
+    port::Int16   = parse(Int16, args[2]) 
 
 
     gameboard::Gameboard{Int8} = Gameboard(zeros(Int8, 5, 5), Int8(0), Int8(5))
-    boardshashes::Dict{Int64, Int64} = Dict{Int64, Int64}()
+    boardshashes::Dict{Int64, Int32} = Dict{Int64, Int32}()
 
     response::Vector{UInt8} = Vector{UInt8}(undef, 3)
     movestring::Union{String, Nothing} = nothing
 
 
-    connection = connect(address, port)
+    try 
+        connection = connect(address, port)
 
-    while isopen(connection)
-        response = readavailable(connection)
+        while isopen(connection)
+            response = readavailable(connection)
 
-        movestring = responseparser(response, gameboard, boardshashes, player, depth)
+            movestring = responseparser(response, gameboard, boardshashes, player, depth)
 
-        if isnothing(movestring)
+            if isnothing(movestring)
+                printboard(gameboard)
+
+                break
+            else
+                write(connection, movestring)
+            end
+
             printboard(gameboard)
-
-            break
-        else
-            write(connection, movestring)
         end
 
-        printboard(gameboard)
+        close(connection)
+        println("\n===============================\n")
+        println("Connection closed successfully.")
+        println("\n===============================\n")
+    catch LoadError
+        println("\nCouldn't establish connection with the server!")
+        println("Check whether the address is correct or server is running.\n")
     end
-
-    close(connection)
-    println("Connection closed successfully.\n")
 end

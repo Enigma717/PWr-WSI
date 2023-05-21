@@ -7,9 +7,12 @@
 ##########################################
 
 
-include("./TTTPlayer.jl")
+
+include("./module/TTTPlayer.jl")
 using .TTTPlayer
 
+
+###  Start game with client  ###
 function start()
     startclient(ARGS)
 end

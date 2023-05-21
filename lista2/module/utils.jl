@@ -12,15 +12,15 @@
 # Constants used in heuristic #
 ###############################
 
-const NEUTRAL_EVAL = 0
-const WIN_EVAL     = 1000000
-const LOSS_EVAL    = -1000000
+const NEUTRAL_EVAL::Int32 = 0
+const WIN_EVAL::Int32     = 1000000
+const LOSS_EVAL::Int32    = -1000000
 
-const BLOCK_EVAL = 100000
+const BLOCK_EVAL::Int32 = 100000
 
-const ATK_MULTIPLIER = 144
-const DEF_MULTIPLIER = 12
-const END_MULTIPLIER = 100000
+const ATK_MULTIPLIER::Int32 = 144
+const DEF_MULTIPLIER::Int32 = 12
+const END_MULTIPLIER::Int32 = 100000
 
 
 ##############
@@ -32,6 +32,7 @@ mutable struct Gameboard{T}
     movesdone::T
     size::T
 
+
     function Gameboard(x::Matrix{T}, y::T, z::T) where T <: Integer
         new{T}(x, y, z)
     end
@@ -41,6 +42,7 @@ end
 mutable struct Move{T}
     row::T
     col::T
+
 
     function Move(x::T, y::T) where T <: Integer
         new{T}(x, y)
@@ -53,7 +55,7 @@ end
 ################################
 
 #=
-    Look for at least one given player symbol in given board line.
+    Look for at least one player symbol in given board line.
 =#
 function issymbolinline(boardline::Vector{Int8}, player::Integer)
     return any(symbol -> symbol == player, boardline)
@@ -97,6 +99,7 @@ end
 
     I fathom how ugly these two functions below are but it works relatively fast.
 
+
     Examples of direct blocks (for player = 1):
         > [2, 2, 1, 2]
         > [2, 0, 1, 2]
@@ -125,6 +128,7 @@ end
     Check for situations where we block opponent by forcing him to place 
     three consecutive symbols in given line.
 
+
     Two cases of indirect blocks (for player = 1):
         > [1, 0, 2, 2, 0]
         > [0, 2, 2, 0, 1]
@@ -132,11 +136,11 @@ end
 function check_indirectblock(boardline::Vector{Int8}, player::Integer)
     opponent::Int8 = 3 - player
     
-    if ((boardline[1] == 0 && boardline[2] == opponent && boardline[3] == opponent && boardline[4] == 0 && boardline[5] == player)) 
+    if ((boardline[1] == 0 && boardline[2] == opponent && boardline[3] == opponent && boardline[4] == 0 && boardline[5] == player)
         || (boardline[1] == player && boardline[2] == 0 && boardline[3] == opponent && boardline[4] == opponent && boardline[5] == 0))
         return true
     end
-
+    
     return false
 end
 
@@ -167,6 +171,7 @@ function getdiagonals(gameboard::Gameboard{Int8}, smalldiags::Bool = false)
         push!(diags, collect(gameboard.board[i, (boardsize + 3) - i] for i in 3:boardsize))
     end
 
+
     return diags
 end
 
@@ -179,7 +184,7 @@ end
     Print given board.
 =#
 function printboard(gameboard::Gameboard{Int8})
-    println("Current board:")
+    println("Current board:\n")
     println("  1 2 3 4 5")
 
     for i in 1:gameboard.size
@@ -202,7 +207,7 @@ function printboard(gameboard::Gameboard{Int8})
 end
 
 #=
-    Return hash of the given board.
+    Calculate hash of the given board.
 =#
 function boardtohash(gameboard::Gameboard{Int8})
     iterator::Int8 = length(gameboard.board)
@@ -215,6 +220,7 @@ function boardtohash(gameboard::Gameboard{Int8})
             iterator -= 1
         end
     end
+
 
     return hash
 end
