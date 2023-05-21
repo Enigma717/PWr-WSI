@@ -147,7 +147,7 @@ end
 
 function startclient(args::Vector{String})
     if length(args) < 4
-        println("Wrong number of arguments provided")
+        println("\nWrong number of arguments.\n")
         
         return nothing
     end
